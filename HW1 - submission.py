@@ -303,8 +303,8 @@ plt.add_callback('RightButtonPressEvent', OnRightClick)
 plt.add_callback('key press', OnKeyPress)  # add Keyboard callback
 plt.add_slider(OnSliderAlpha, 0., 1., 1., title="Alpha")  # add a slider for the alpha value of the surface
 plt.add_callback('LeftButtonPressEvent', OnLeftClick)  # add left mouse button click callback
-plt.add_button(OnGradButtonPress, pos=(0.8, 0.9), states=["Gradient Step"], size=20, c="w", bc="blue")
-plt.add_button(OnNewtonButtonPress, pos=(0.8, 0.8), states=["Newton Step"], size=20, c="w", bc="red")
+plt.add_button(OnGradButtonPress, pos=(0.8, 0.3), states=["Gradient Step"], size=20, c="w", bc="blue")
+plt.add_button(OnNewtonButtonPress, pos=(0.8, 0.2), states=["Newton Step"], size=20, c="w", bc="red")
 plt.show([fplt3d, fplt2d], msg, __doc__, viewup='z')
 plt.close()
 

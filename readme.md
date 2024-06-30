@@ -1,7 +1,7 @@
 # Animation and Robotics - Assignment 1: <br> Optimization and visualization basics
 
 ## Introduction
-Both animation and robotics heavily rely on optimization algorithms. In order to understand what is happening inside the optimizer, and to debug efficiently, we must emply *interactive* visualization technique. Interactive means that it is possible to change parameters during runtime and see the change in result immediately, without having to stop, edit, and run again.
+ Both animation and robotics heavily rely on optimization algorithms. In order to understand what is happening inside the optimizer, and to debug efficiently, we must emply *interactive* visualization technique. Interactive means that it is possible to change parameters during runtime and see the change in result immediately, without having to stop, edit, and run again.
 In this introductory assignment you will experiment with basic optimization and visualization techniques. The goal is to introduce you an important, different way of coding that is geared toward interactive techniques. This will be important in the rest of the class.
 
 ## Instructions
@@ -62,13 +62,13 @@ Don't forget the graph from the previous task. It should still be visible and sh
 Attach a few pictures to the report and explain what they show.
 
 ### Task 3: Evaluate
-We regularly need to know which method performs better. To test this, we need to compare methods in terms of speed and convergence rate.
-1. Change the code such that is maintains two paths, one for gradient descent steps and one for Newton steps. when pressing with the gradient or Newton's button, it will only advance the appropriate one. In addition, the plot of the objective should present both paths.
-2. Select several points, and plot the value of the objective after enough iterations are performed such that the is no visible difference between iterations. Put the results in your report.
-3. (Optional) How many iterations are needed? Devise an automatic way to decide when to stop iterating and report on your approach.
-4. (Optional) The gradients and Hessians in the code are computed *numerically* using finite differences. This is a slow but simple way to obtain them. The alternative is to compute them *analytically* by hand, using basic calculus (or to use automatic differentiation). Write two new functions that compute the gradient and Hessian of the objective analytically and copy the code to your report.
-5. (Optional) Measure the time it takes to run the numerical vs. analytical computation.
-6. (Optional) The finite different approximation relies on a finite epsilon. Compare the values of the finite difference gradients for different epsilons with the analytical (true) value. 
+# We regularly need to know which method performs better. To test this, we need to compare methods in terms of speed and convergence rate.
+# 1. Change the code such that is maintains two paths, one for gradient descent steps and one for Newton steps. when pressing with the gradient or Newton's button, it will only advance the appropriate one. In addition, the plot of the objective should present both paths.
+# 2. Select several points, and plot the value of the objective after enough iterations are performed such that the is no visible difference between iterations. Put the results in your report.
+# 3. (Optional) How many iterations are needed? Devise an automatic way to decide when to stop iterating and report on your approach.
+# 4. (Optional) The gradients and Hessians in the code are computed *numerically* using finite differences. This is a slow but simple way to obtain them. The alternative is to compute them *analytically* by hand, using basic calculus (or to use automatic differentiation). Write two new functions that compute the gradient and Hessian of the objective analytically and copy the code to your report.
+# 5. (Optional) Measure the time it takes to run the numerical vs. analytical computation.
+# 6. (Optional) The finite different approximation relies on a finite epsilon. Compare the values of the finite difference gradients for different epsilons with the analytical (true) value. 
 
 ## Submission
 Place the report in a file names `report.md` in the root directory of the repository.

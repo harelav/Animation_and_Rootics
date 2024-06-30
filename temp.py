@@ -9,7 +9,7 @@ vd.settings.default_backend = 'vtk'
 
 
 def OnMouseMove(evt):                ### called every time mouse moves!
-    global Xi_grad, Xi_newton
+    global Xi, Xi_grad, Xi_newton
 
     if evt.object is None:          # mouse hits nothing, return.
         return                       
@@ -26,7 +26,7 @@ def OnMouseMove(evt):                ### called every time mouse moves!
             f"dE: {vd.precision(Xi_grad[-1,2] - Xi_grad[-2,2],2)}\n"
         )
         ar = vd.Arrow(Xi_grad[-2,:], Xi_grad[-1,:], s=0.001, c='orange5')
-        #plt.add(ar) # add the arrow
+        plt.add(ar) # add the arrow
     else:
         txt = f"X: {vd.precision(X,2)}"
     msg.text(txt)                    # update text message
@@ -39,6 +39,9 @@ def OnMouseMove(evt):                ### called every time mouse moves!
 
     plt.add(fp, c) # add the new flagpole and new cylinder
     plt.render()   # re-render the scene
+    
+    update_path_plot_grad()  #update the path plot on the mesh
+
 
 def OnLeftClick(evt):
     if evt.actor:
@@ -58,7 +61,7 @@ def OnLeftClick(evt):
                 
             # Insert the new point into Xi arrays
             Xi = np.append(Xi, [new_point], axis=0)
-            Xi_newton = np.append(Xi, [new_point], axis=0)
+            Xi_newton = np.append(Xi_newton, [new_point], axis=0)
             Xi_grad = np.append(Xi_grad, [new_point], axis=0)
 
             # Remove all arrows
@@ -248,6 +251,7 @@ def create_magen_david():
     magen_david = vd.Assembly([triangle1, triangle2])
     return magen_david
 
+# Create the Magen David shape
 magen_david = create_magen_david()
 
 #%% Callbacks
@@ -256,12 +260,8 @@ magen_david = create_magen_david()
 #%% Callbacks
 def OnRightClick(evt):
     if evt.actor:
-        # Remove previous Magen David shape if it exists
-        plt.remove("MagenDavid")
-        
         # Place the Magen David shape at the top-left corner of the screen
         magen_david.scale(0.1).pos(-0.8, 0.8, 0)  # Adjust the scale and position if necessary
-        magen_david.name = "MagenDavid"  # Name the Magen David shape
         plt.add(magen_david)
         plt.render()
         print(f"Magen David shape added at top-left corner")
@@ -300,13 +300,14 @@ fplt2d[0].lighting('off')  # turn off lighting for the 2D plot
 fplt2d[0].vertices[:, 2] = 0  # set the z-coordinate of the mesh to 0
 fplt2d[1].vertices[:, 2] = 0  # set the z-coordinate of the isolines to 0
 
-#plt.add_callback('mouse move', OnMouseMove)  # add Mouse move callback
+plt.add_callback('mouse move', OnMouseMove)  # add Mouse move callback
 # Register the callback for right mouse button click
 plt.add_callback('RightButtonPressEvent', OnRightClick)
 plt.add_callback('key press', OnKeyPress)  # add Keyboard callback
 plt.add_slider(OnSliderAlpha, 0., 1., 1., title="Alpha")  # add a slider for the alpha value of the surface
 plt.add_callback('LeftButtonPressEvent', OnLeftClick)  # add left mouse button click callback
-plt.add_button(OnGradButtonPress, pos=(0.8, 0.9), states=["Gradient Step"], size=20, c="w", bc="blue")
-plt.add_button(OnNewtonButtonPress, pos=(0.8, 0.8), states=["Newton Step"], size=20, c="w", bc="red")
+plt.add_button(OnGradButtonPress, pos=(0.8, 0.3), states=["Gradient Step"], size=20, c="w", bc="blue")
+plt.add_button(OnNewtonButtonPress, pos=(0.8, 0.2), states=["Newton Step"], size=20, c="w", bc="red")
 plt.show([fplt3d, fplt2d], msg, __doc__, viewup='z')
 plt.close()
+
