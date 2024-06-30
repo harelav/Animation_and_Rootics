@@ -248,6 +248,7 @@ def create_magen_david():
     magen_david = vd.Assembly([triangle1, triangle2])
     return magen_david
 
+# Create the Magen David shape
 magen_david = create_magen_david()
 
 #%% Callbacks
