@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 import numdifftools as nd
 from scipy.sparse import coo_matrix
 import triangle as tr # pip install triangle  
-      
+# bla bla bla     
 
 #%% Energy functions
 # Abstract element energy class that implements finite differences for the gradient and hessian
