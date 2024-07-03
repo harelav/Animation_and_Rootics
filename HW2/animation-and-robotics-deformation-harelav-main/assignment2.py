@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 import numdifftools as nd
 from scipy.sparse import coo_matrix
 import triangle as tr # pip install triangle  
-# bla bla bla     
 
 #%% Energy functions
 # Abstract element energy class that implements finite differences for the gradient and hessian
@@ -159,7 +158,7 @@ class MeshOptimizer:
         return x
 
 #%% Main program
-vertices = np.array([[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) # square
+vertices = np.array([[0, 2], [2,-1], [2,1],  [0,-2] , [-2,-1], [-2,1]]) # hexagon
 tris = tr.triangulate({"vertices":vertices[:,0:2]}, f'qa0.01') # triangulate the square
 V = tris['vertices'] # get the vertices of the triangles
 F = tris['triangles'] # get the triangles
