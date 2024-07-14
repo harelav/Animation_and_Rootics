@@ -215,27 +215,32 @@ triangulated = tr.triangulate(boundary, 'p')
 V = triangulated['vertices']
 F = triangulated['triangles']
 
-print(f"Number of vertices: {len(V)}")
-print(f"Number of triangles: {len(F)}")
-
 pinned_vertices = []
+message = vd.Text2D("", pos='bottom-left', c='black', font='Courier', s=1)
 
 def redraw():
     plt.remove("Mesh")
-    mesh = vd.Mesh([V,F]).linecolor('black')
+    mesh = vd.Mesh([V, F]).linecolor('black')
     plt.add(mesh)
     plt.remove("Points")
-    plt.add(vd.Points(V[pinned_vertices,:],r=10))
+    plt.add(vd.Points(V[pinned_vertices, :], r=10))
+    
+    # text annotations for pinned vertices
+    for vi in pinned_vertices:
+        text = f"ID: {vi}\nCoord: ({V[vi][0]:.2f}, {V[vi][1]:.2f})"
+        plt.add(vd.Text3D(text, pos=V[vi], s=0.1, c='black'))
+    
+    plt.remove(message)
+    plt.add(message)
     plt.render()
 
 def OnLeftButtonPress(event):
-    if event.object is None:          # mouse hits nothing, return.
-        print('Mouse hits nothing')
-    if isinstance(event.object,vd.mesh.Mesh):          # mouse hits the mesh
+    global message
+    if event.object is None:  # mouse hits nothing, return.
+        message.text("Mouse hits nothing")
+    elif isinstance(event.object, vd.mesh.Mesh):  # mouse hits the mesh
         Vi = vdmesh.closest_point(event.picked3d, return_point_id=True)
-        print('Mouse hits the mesh')
-        print('Coordinates:', event.picked3d)
-        print('Point ID:', Vi)
+        message.text(f'Mouse hits the mesh\nCoordinates: {event.picked3d}\nPoint ID: {Vi}')
         if Vi not in pinned_vertices:
             pinned_vertices.append(Vi)
         else:
@@ -244,10 +249,14 @@ def OnLeftButtonPress(event):
 
 plt = vd.Plotter()
 
-plt.add_callback('LeftButtonPress', OnLeftButtonPress) # add Keyboard callback
-vdmesh = vd.Mesh([V,F]).linecolor('black')
+plt.add_callback('LeftButtonPress', OnLeftButtonPress)  # add Keyboard callback
+vdmesh = vd.Mesh([V, F]).linecolor('black')
 plt += vdmesh
-plt += vd.Points(V[pinned_vertices,:])
+plt += vd.Points(V[pinned_vertices, :])
+plt += message
 plt.user_mode('2d').show().close()
+
+# Capture a screenshot for the report
+plt.screenshot("vedo_debug_view.png")
 
 # %%
