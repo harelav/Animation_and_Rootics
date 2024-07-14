@@ -3,6 +3,10 @@ Task 1:
 
 ![alt text](image.png)
 
-1.2 Triangulate to 100 triangles.
+1.2.1 Triangulate to 100 triangles.
 
 ![alt text](image-1.png)
+
+1.2.2 Triangulate to no interior vertices
+
+![alt text](image-2.png)

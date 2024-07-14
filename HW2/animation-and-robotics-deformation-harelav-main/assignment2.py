@@ -199,7 +199,7 @@ vertices = np.array([
 ])
 
 # Create segments to connect boundary vertices
-segments = np.array([[i, (i+1) % len(vertices)] for i in range(len(vertices))])
+segments = np.array([[i, (i + 1) % len(vertices)] for i in range(len(vertices))])
 
 # Create a boundary description for Triangle
 boundary = {
@@ -207,15 +207,9 @@ boundary = {
     'segments': segments
 }
 
-# Estimate the area constraint to get around 100 triangles
-total_area = 2 * 2 * 6 / 2  # The area of the hexagon
-target_triangle_area = total_area / 100
-
-# Triangulate with options to control the number of vertices
+# Triangulate with options to ensure only the provided vertices are used
 # 'p' ensures the vertices and segments are used as provided
-# 'q20' ensures no angles are smaller than 20 degrees for quality
-# 'a' sets a maximum area constraint to control the number of triangles
-triangulated = tr.triangulate(boundary, f'pqa{target_triangle_area}')
+triangulated = tr.triangulate(boundary, 'p')
 
 # Extract vertices and triangles from the result
 V = triangulated['vertices']
