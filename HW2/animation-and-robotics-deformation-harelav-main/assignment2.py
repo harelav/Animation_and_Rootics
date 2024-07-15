@@ -207,9 +207,19 @@ boundary = {
     'segments': segments
 }
 
+# Calculate the approximate area of the hexagon (for a regular hexagon)
+hex_area = 1.5 * np.sqrt(3) * (2 ** 2)
+
+# Desired number of triangles
+desired_triangles = 100
+
+# Approximate area for each triangle
+max_triangle_area = hex_area / desired_triangles
+
 # Triangulate with options to ensure only the provided vertices are used
 # 'p' ensures the vertices and segments are used as provided
-triangulated = tr.triangulate(boundary, 'p')
+# 'a' specifies the maximum area for each triangle
+triangulated = tr.triangulate(boundary, f'pa{max_triangle_area:.8f}')
 
 # Extract vertices and triangles from the result
 V = triangulated['vertices']
@@ -224,11 +234,6 @@ def redraw():
     plt.add(mesh)
     plt.remove("Points")
     plt.add(vd.Points(V[pinned_vertices, :], r=10))
-    
-    # text annotations for pinned vertices
-    for vi in pinned_vertices:
-        text = f"ID: {vi}\nCoord: ({V[vi][0]:.2f}, {V[vi][1]:.2f})"
-        plt.add(vd.Text3D(text, pos=V[vi], s=0.1, c='black'))
     
     plt.remove(message)
     plt.add(message)
