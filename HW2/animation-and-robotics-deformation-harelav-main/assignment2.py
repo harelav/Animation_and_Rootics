@@ -258,3 +258,4 @@ plt.user_mode('2d').show().close()
 
 # Capture a screenshot for the report
 plt.screenshot("vedo_debug_view.png")
+   
