@@ -1,27 +1,29 @@
 import vedo as vd
-vd.settings.default_backend= 'vtk'
+vd.settings.default_backend = 'vtk'
 
 from vedo import show
 import numpy as np
 from abc import ABC, abstractmethod
 import numdifftools as nd
 from scipy.sparse import coo_matrix
-import triangle as tr # pip install triangle    
+import triangle as tr  # pip install triangle
 
 #%% Stencil class
 class Stencil(ABC):
     @abstractmethod
     def ExtractElementsFromMesh(F):
-        return 0
+        edges = {tuple(sorted((F[i, j], F[i, (j + 1) % 3]))) for i in range(F.shape[0]) for j in range(3)}
+        return list(edges)
 
-    @abstractmethod
+    #@abstractmethod
+    @staticmethod
     def ExtractVariblesFromVectors(x):
-        return 0
+        return x[:2], x[2:4]
 
 class EdgeStencil(Stencil):
     @staticmethod
     def ExtractElementsFromMesh(F):
-        edges = {tuple(sorted((F[i, j], F[i, (j+1) % 3]))) for i in range(F.shape[0]) for j in range(3)}
+        edges = {tuple(sorted((F[i, j], F[i, (j + 1) % 3]))) for i in range(F.shape[0]) for j in range(3)}
         return list(edges)
     
     @staticmethod
@@ -48,6 +50,8 @@ class ElementEnergy(ABC):
     
     def check_gradient(self, X, x):
         grad = self.gradient(X, x)
+        # print("grad", grad)
+        # print("grad shape", grad.shape)
         grad_fd = self.gradient_fd(X, x)
         return np.linalg.norm(grad - grad_fd)
 
@@ -59,12 +63,17 @@ class ZeroLengthSpringEnergy(ElementEnergy):
         x1, x2 = self.stencil.ExtractVariblesFromVectors(x)
         return 0.5 * np.linalg.norm(x1 - x2) ** 2
 
+# I modified the code here.
     def gradient(self, X, x):
         x1, x2 = self.stencil.ExtractVariblesFromVectors(x)
-        return np.array([x1 - x2, x2 - x1])
+        g1 = x1 - x2
+        g2 = x2 - x1
+        return np.array([g1, g2])
+        #return np.array([x1 - x2, x2 - x1])
 
     def hessian(self, X, x):
-        I = np.eye(3)
+        #I = np.eye(3)
+        I = np.eye(2)
         return np.block([[I, -I], [-I, I]])
 
 class SpringEnergy(ElementEnergy):
@@ -101,16 +110,30 @@ class FEMMesh:
         return energy
     
     def compute_gradient(self, x):
-        grad = np.zeros(3 * x.shape[0])
+        print("In compute_gradient")
+        #grad = np.zeros(3 * x.shape[0])
+        grad = np.zeros_like(x)
+        # print("grad", grad)
+        # print("grad shape", grad.shape)
+        # print("after grad")
         for element in self.elements:
+            # print("in loop")
             Xi = self.X[element, :]
             xi = x[element, :]
             gi = self.energy.gradient(Xi, xi)
+            # print("in middle of loop")
 
-            grad[element] += gi[0:1]
-            grad[element + self.nV] += gi[2:3]
-            grad[element + 2 * self.nV] += gi[4:5]
+            # print(f"element: {element}, grad[element[0]] shape: {grad[element[0]].shape}, gi[0] shape: {gi[0].shape}")
+            # print(f"grad[element[0]]: {grad[element[0]]}, gi[0]: {gi[0]}")
             
+            grad[element[0]] += gi[0]
+            grad[element[1]] += gi[1]
+            # print("in almost end of loop")
+
+            # grad[element] += gi[0:1]
+            # grad[element + self.nV] += gi[2:3]
+            # grad[element + 2 * self.nV] += gi[4:5]
+        # print("grad computed")    
         return grad
     
     def compute_hessian(self, x):
@@ -144,6 +167,7 @@ class MeshOptimizer:
         return x0 + alpha * d, alpha
 
     def GradientDescent(self, x):
+        print("In GradientDescent")
         d = self.femMesh.compute_gradient(x)
         return -d
 
@@ -154,6 +178,7 @@ class MeshOptimizer:
         return d
     
     def step(self, x):
+        print("In step")
         d = self.SearchDirection(x)
         new_x, alpha = self.LineSearch(x, d)
         return new_x
@@ -186,9 +211,48 @@ triangulated = tr.triangulate(boundary, f'pa{max_triangle_area:.8f}')
 V = triangulated['vertices']
 F = triangulated['triangles']
 
+
 pinned_vertices = []
 moving_vertex = None
 message = vd.Text2D("", pos='bottom-left', c='black', font='Courier', s=1)
+
+mesh = vd.Mesh([V, F]).linecolor('black')
+
+# Initialize the optimizer with the starting positions
+#x = np.copy(V)
+# Create x with shape (105, 3) by adding a column of zeros
+x = np.hstack((V, np.zeros((V.shape[0], 1))))
+# print("x", x)
+# print("x shape", x.shape)
+iteration = 0
+
+femMesh = FEMMesh(V, F, ZeroLengthSpringEnergy(), EdgeStencil())
+#print("femMesh", femMesh)
+optimizer = MeshOptimizer(femMesh)
+
+#print("optimizer", optimizer)
+
+def optimization_callback(mesh, iteration, x):
+    # print("x shape", x.shape)
+    # print("x", x)
+    # print("x[:, :2] shape", x[:, :2].shape)
+    # print("x[:, :2]", x[:, :2])
+    mesh.vertices = x[:, :2]  # Update the vertices
+    # mesh.vertices.  # Update the vertices
+    message.text(f"Iteration: {iteration}")
+    plt.render()
+
+def on_button_click(evt, *args, **kwargs):
+    print("In on_button_click")
+    global iteration, x, optimizer, mesh
+    #print(f"Event triggered: {evt}")
+    x = optimizer.step(x)
+    # print("x shape", x.shape)
+    optimization_callback(mesh, iteration, x)
+    iteration += 1
+
+# Setup the plotter and callbacks
+plt = vd.Plotter()
 
 def redraw():
     plt.remove("Mesh")
@@ -202,9 +266,7 @@ def redraw():
     plt.render()
 
 def OnLeftButtonPress(event):
-    print("In OnLeftButtonPress")
     global moving_vertex, message
-    print(f"isinstance(event.object, vd.mesh.Mesh)", isinstance(event.object, vd.mesh.Mesh))
     if event.object is None:  # mouse hits nothing, return.
         message.text("Mouse hits nothing")
     elif isinstance(event.object, vd.mesh.Mesh):  # mouse hits the mesh
@@ -214,48 +276,48 @@ def OnLeftButtonPress(event):
             pinned_vertices.append(Vi)
         else:
             pinned_vertices.remove(Vi)
-        print(f"Vi: {Vi}")
         moving_vertex = Vi
         message.text(f'Moving vertex: {Vi}')
     redraw()
 
 def OnRightButtonPress(event):
-    print("In OnRightButtonPress")
-    global moving_vertex
+    global moving_vertex, V, x, message
     if moving_vertex is None:  # No vertex is currently being moved
         message.text("No vertex is being moved")
     else:
         message.text("Mouse hits the mesh")
         print(f"Moving vertex: {moving_vertex}, new coordinates: {event.picked3d[:2]}")  # Debugging line
+
         V[moving_vertex] = event.picked3d[:2]  # Update the vertex position with new coordinates
+        print(f"V[moving_vertex]: {V[moving_vertex]}")
+        print(f"x[moving_vertex]: {x[moving_vertex]}")
+        x[moving_vertex, :2] = event.picked3d[:2]  # Update the x variable as well
         moving_vertex = None
         redraw()
 
-
 def OnMouseMove(event):
+    #print("In OnMouseMove")
     global moving_vertex
     if moving_vertex is not None:
+        #print("moving_vertex is not None")
         V[moving_vertex] = event.picked3d[:2]  # Update the vertex position with new coordinates
-        
         redraw()
 
 def OnLeftButtonRelease(event):
     global moving_vertex
     moving_vertex = None
 
-plt = vd.Plotter()
-
-plt.add_callback('LeftButtonPress', OnLeftButtonPress)  # add Left Button Press callback
-plt.add_callback('MouseMove', OnMouseMove)  # add Mouse Move callback
-plt.add_callback('LeftButtonRelease', OnLeftButtonRelease)  # add Left Button Release callback
-plt.add_callback('RightButtonPress', OnRightButtonPress)  # add Right Button Press callback
+# Add callbacks
+plt.add_callback('LeftButtonPress', OnLeftButtonPress)
+plt.add_callback('MouseMove', OnMouseMove)
+plt.add_callback('LeftButtonRelease', OnLeftButtonRelease)
+plt.add_callback('RightButtonPress', OnRightButtonPress)
+plt.add_button(on_button_click, pos=(0.7, 0.05), states=["Next Step"])
 
 vdmesh = vd.Mesh([V, F]).linecolor('black')
 plt += vdmesh
 plt += vd.Points(V[pinned_vertices, :])
 plt += message
-plt.user_mode('2d').show().close()
 
-# Capture a screenshot for the report
-plt.screenshot("vedo_debug_view.png")
-   
+plt.user_mode('2d').show()
+
