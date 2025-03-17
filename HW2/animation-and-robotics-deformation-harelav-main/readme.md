@@ -51,8 +51,8 @@ extract the faces and vertices and creates a new Vedo Mesh.
 1. Create a different shape, other than the square in the sample code. Show it in the report. Be creative!
 2. Read the documentation of Triangle and figure out how to create a triangulation with no interior vertices and with approximately 100 vertices. Show the results in the report.
 
-### Task 2: Implement Basic UI for Moving Points
-In order to interact with the simulator, we need to implement a basic UI. A simple option is to allow the user to *pin* vertices by clicking on them, and set a new location for pinned vertices. The lines
+## Task 2: Implement Basic UI for Moving Points
+# In order to interact with the simulator, we need to implement a basic UI. A simple option is to allow the user to *pin* vertices by clicking on them, and set a new location for pinned vertices. The lines
 ```
 def OnLeftButtonPress(event):
     if event.object is None:          # mouse hits nothing, return.
@@ -61,7 +61,7 @@ def OnLeftButtonPress(event):
         print('Mouse hits the mesh')
         print(event.picked3d)
 ```
-demonstrate a simple interaction with the mesh. Note the the prints will only occur after the window is closed. 
+## demonstrate a simple interaction with the mesh. Note the the prints will only occur after the window is closed. 
 
 1. Instead of printing to Jupyter (IPython), change the code such that it prints to the Vedo Window. This will make it easier to debug problems. Show an image in the report
 2. Building on top of the basic functionality shown above, implement a mechanism that would allow the user to pin vertices and move pinned vertices to new locations. There are countless approaches for doing that. Make your own, and be creative! Remember you can use keyboard modifiers (Shift, CTRL, ALT, etc.) to change what happens when you click on an object with the mouse. Explain your interface in the report and add images/clips that could illustrate it if necessary.
@@ -73,6 +73,7 @@ femMesh = FEMMesh(mesh, ZeroLengthSpringEnergy)
 optimizer = MeshOptimizer(femMesh)
 ```
 Run `x = optimizer.step(x)` and show the result after each iteration. What do you expect to see? Compare gradient descent and Newton's method and report on your findings.
+
 2. Try to do the same with `SpringEnergy` and show in the report. Note that since the gradient and Hessian methods are not implemented, they are computed using finite differences.
 3. Enable pinning vertices. This can be done in a veriaty of ways. One simple approach is to change x after each iteration, such that the elements in x that correspond to the fixed vertex match its coordinates. In other words, if vertex number i is fixed to the coordinates (xi,yi), then after each iteration do `x(i) = xi` and `x(i+self.nV) = yi`. Optional: explain the flaw with this approach and propose a better one. Show the result in the report.
 4. Optional: Implement the missing gradient and Hessian of `SpringEnergy` and compare the performance of the analytical derivatives with the numerical (finite differences) derivative.

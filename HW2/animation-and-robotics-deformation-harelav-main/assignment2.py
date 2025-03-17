@@ -1,9 +1,11 @@
 import vedo as vd
 vd.settings.default_backend = 'vtk'
 
+import time
 from vedo import show
 import numpy as np
 from abc import ABC, abstractmethod
+from tqdm import tqdm
 import numdifftools as nd
 from scipy.sparse import coo_matrix
 import triangle as tr  # pip install triangle
@@ -63,13 +65,11 @@ class ZeroLengthSpringEnergy(ElementEnergy):
         x1, x2 = self.stencil.ExtractVariblesFromVectors(x)
         return 0.5 * np.linalg.norm(x1 - x2) ** 2
 
-# I modified the code here.
     def gradient(self, X, x):
         x1, x2 = self.stencil.ExtractVariblesFromVectors(x)
         g1 = x1 - x2
         g2 = x2 - x1
-        return np.array([g1, g2])
-        #return np.array([x1 - x2, x2 - x1])
+        return np.concatenate((g1, g2))  # connect the gradients
 
     def hessian(self, X, x):
         #I = np.eye(3)
@@ -82,13 +82,19 @@ class SpringEnergy(ElementEnergy):
     
     def energy(self, X, x):
         x1, x2 = self.stencil.ExtractVariblesFromVectors(x)
-        X1, X2 = self.stencil.ExtractVariblesFromVectors(X)
-        return 0.5 * (np.linalg.norm(x1 - x2) - np.linalg.norm(X1 - X2)) ** 2
-    # def gradient(self, X, x):
-    #     TODO
-    #
-    # def hessian(self, X, x):
-    #     TODO
+        return 0.5 * np.linalg.norm(x1 - x2)**2
+    
+    def gradient(self, X, x):
+        x1, x2 = self.stencil.ExtractVariblesFromVectors(x)        
+        grad_x1 = x1 - x2
+        grad_x2 = x2 - x1
+        return np.concatenate((grad_x1, grad_x2))  # connect the gradients
+
+    
+    def hessian(self, X, x):
+        I = np.eye(2)  # create a 2x2 identity matrix
+        return np.block([[I, -I], [-I, I]])
+
 
 #%% Mesh class
 class FEMMesh:
@@ -102,44 +108,33 @@ class FEMMesh:
         self.nV = self.V.shape[0]
 
     def compute_energy(self, x):
+        #print("In compute_energy")
         energy = 0
+        x = x.reshape(-1, 2)  # reshape to a 2D with 2 columns
         for element in self.elements:
-            Xi = self.X[element, :]
-            xi = x[element, :]
+            Xi = self.X[list(element), :]
+            xi = x[list(element), :]
             energy += self.energy.energy(Xi, xi)
         return energy
     
     def compute_gradient(self, x):
         print("In compute_gradient")
-        #grad = np.zeros(3 * x.shape[0])
-        grad = np.zeros_like(x)
-        # print("grad", grad)
-        # print("grad shape", grad.shape)
-        # print("after grad")
+        grad = np.zeros_like(self.V)
+        x = x.reshape(-1, 2) # lets reshape x to a 2D array with 2 columns
         for element in self.elements:
-            # print("in loop")
-            Xi = self.X[element, :]
-            xi = x[element, :]
+            Xi = self.X[list(element), :]
+            xi = x[list(element), :]
             gi = self.energy.gradient(Xi, xi)
-            # print("in middle of loop")
-
-            # print(f"element: {element}, grad[element[0]] shape: {grad[element[0]].shape}, gi[0] shape: {gi[0].shape}")
-            # print(f"grad[element[0]]: {grad[element[0]]}, gi[0]: {gi[0]}")
-            
-            grad[element[0]] += gi[0]
-            grad[element[1]] += gi[1]
-            # print("in almost end of loop")
-
-            # grad[element] += gi[0:1]
-            # grad[element + self.nV] += gi[2:3]
-            # grad[element + 2 * self.nV] += gi[4:5]
-        # print("grad computed")    
-        return grad
+            for idx, elem in enumerate(element):
+                grad[elem] += gi[2 * idx: 2 * (idx + 1)]
+        return grad.flatten()
     
     def compute_hessian(self, x):
+        print("In compute_hessian")
         I = []
         J = []
         S = []
+        x = x.reshape(-1, 2)  
         for element in self.elements:
             Xi = self.X[element, :]
             xi = x[element, :]
@@ -149,7 +144,7 @@ class FEMMesh:
                     I.append(element[i % 2] + self.nV * (i // 2))
                     J.append(element[j % 2] + self.nV * (j // 2))
                     S.append(hess[i, j])
-        H = coo_matrix((S, (I, J)), shape=(3 * self.nV, 3 * self.nV))
+        H = coo_matrix((S, (I, J)), shape=(2 * self.nV, 2 * self.nV)).tocsc()
         return H
 
 #%% Optimization
@@ -160,6 +155,7 @@ class MeshOptimizer:
         self.LineSearch = self.BacktrackingLineSearch
 
     def BacktrackingLineSearch(self, x, d, alpha=1):
+        print("In BacktrackingLineSearch")
         x0 = x.copy()
         f0 = self.femMesh.compute_energy(x0)
         while self.femMesh.compute_energy(x0 + alpha * d) > f0:
@@ -174,7 +170,7 @@ class MeshOptimizer:
     def Newton(self, x):
         grad = self.femMesh.compute_gradient(x)
         hess = self.femMesh.compute_hessian(x)
-        d = -np.linalg.solve(hess, grad)
+        d = -np.dot(np.linalg.pinv(hess.toarray()), grad)  # we use pseudo-inverse:
         return d
     
     def step(self, x):
@@ -191,23 +187,16 @@ class MeshOptimizer:
         return x
 
 #%% Main program
-vertices = np.array([
-    [0, 2], [2, 1], [2, -1], [0, -2], [-2, -1], [-2, 1]
-])
-
+vertices = np.array([[0, 2], [2, 1], [2, -1], [0, -2], [-2, -1], [-2, 1]])
 segments = np.array([[i, (i + 1) % len(vertices)] for i in range(len(vertices))])
-
 boundary = {
     'vertices': vertices,
     'segments': segments
 }
-
 hex_area = 1.5 * np.sqrt(3) * (2 ** 2)
 desired_triangles = 100
 max_triangle_area = hex_area / desired_triangles
-
 triangulated = tr.triangulate(boundary, f'pa{max_triangle_area:.8f}')
-
 V = triangulated['vertices']
 F = triangulated['triangles']
 
@@ -218,41 +207,57 @@ message = vd.Text2D("", pos='bottom-left', c='black', font='Courier', s=1)
 
 mesh = vd.Mesh([V, F]).linecolor('black')
 
-# Initialize the optimizer with the starting positions
-#x = np.copy(V)
-# Create x with shape (105, 3) by adding a column of zeros
-x = np.hstack((V, np.zeros((V.shape[0], 1))))
-# print("x", x)
-# print("x shape", x.shape)
-iteration = 0
-
 femMesh = FEMMesh(V, F, ZeroLengthSpringEnergy(), EdgeStencil())
-#print("femMesh", femMesh)
 optimizer = MeshOptimizer(femMesh)
 
-#print("optimizer", optimizer)
+# lets start with an initial configuration
+x = V.copy().flatten()
+x_optimized = x.copy()
 
-def optimization_callback(mesh, iteration, x):
-    # print("x shape", x.shape)
-    # print("x", x)
-    # print("x[:, :2] shape", x[:, :2].shape)
-    # print("x[:, :2]", x[:, :2])
-    mesh.vertices = x[:, :2]  # Update the vertices
-    # mesh.vertices.  # Update the vertices
-    message.text(f"Iteration: {iteration}")
-    plt.render()
+iterations_num = 15
+for i in tqdm(range(iterations_num), desc="Some Direction"):
+    plt = vd.Plotter() # Create a plotter object
+    x_optimized  = optimizer.step(x_optimized )
 
-def on_button_click(evt, *args, **kwargs):
-    print("In on_button_click")
-    global iteration, x, optimizer, mesh
-    #print(f"Event triggered: {evt}")
-    x = optimizer.step(x)
-    # print("x shape", x.shape)
-    optimization_callback(mesh, iteration, x)
-    iteration += 1
+    current_mesh = vd.Mesh([x_optimized.reshape(-1, 2), F]).linecolor('black')
+    plt.add(current_mesh)
+    plt.camera.SetPosition([0, 0, 4])  # Set the camera position
+    plt.render()  # Render the plot
+    time.sleep(1) # in order to see the result
+    plt.close() 
 
-# Setup the plotter and callbacks
-plt = vd.Plotter()
+# lets compare to Newton's method gradient descent
+optimizer.SearchDirection = optimizer.Newton
+x_newton = x.copy()
+for i in tqdm(range(iterations_num), desc="Newton's Method"):
+    x_newton = optimizer.step(x_newton)
+x_gradient = x.copy()
+for i in tqdm(range(iterations_num), desc="Gradient Descent"):
+    x_gradient = optimizer.step(x_gradient)
+
+# GD plot
+gd_mesh = vd.Mesh([x_gradient.reshape(-1, 2), F]).linecolor('blue').legend('Gradient Descent')
+title_gd = vd.Text2D("GD", pos="button", c="blue")
+
+# NM plot
+newton_mesh = vd.Mesh([x_newton.reshape(-1, 2), F]).linecolor('brown').legend('Newton')
+title_newton = vd.Text2D("Newton's", pos="button", c="brown")
+
+#BLS plot
+initial_mesh = vd.Mesh([x_optimized.reshape(-1, 2), F]).linecolor('green').legend('Random Direction Solution')
+title_initial = vd.Text2D("BLS", pos="button", c="green")
+
+# set plotter
+plt = vd.Plotter(shape=(3, 1), size=(1800, 600))  
+
+plt.show(initial_mesh, title_initial, at=0, viewup='2d', resetcam=True)
+plt.show(gd_mesh, title_gd, at=1, viewup='2d', resetcam=True)
+plt.show(newton_mesh, title_newton, at=2, viewup='2d', resetcam=True)
+
+plt.camera.SetPosition([0, 0, 3])  
+
+# combined plot
+plt.show(interactive=True)
 
 def redraw():
     plt.remove("Mesh")
@@ -289,19 +294,27 @@ def OnRightButtonPress(event):
         print(f"Moving vertex: {moving_vertex}, new coordinates: {event.picked3d[:2]}")  # Debugging line
 
         V[moving_vertex] = event.picked3d[:2]  # Update the vertex position with new coordinates
-        print(f"V[moving_vertex]: {V[moving_vertex]}")
-        print(f"x[moving_vertex]: {x[moving_vertex]}")
+        #print(f"V[moving_vertex]: {V[moving_vertex]}")
+        #print(f"x[moving_vertex]: {x[moving_vertex]}")
         x[moving_vertex, :2] = event.picked3d[:2]  # Update the x variable as well
         moving_vertex = None
         redraw()
 
-def OnMouseMove(event):
+def mouse_move(event):
+    #print("evt", event)
+    #print("evt type", type(event))
+    # print("evt.__dict__", evt.__dict__)
+    # print("evt.__dict__ type", type(evt.__dict__))
+    # print("evt.__dict__['button']", evt.__dict__['button'])
+    #print("evt shape", event.shape)
     #print("In OnMouseMove")
     global moving_vertex
+    if not event.object:
+        return
     if moving_vertex is not None:
-        #print("moving_vertex is not None")
+        print("moving_vertex is not None")
         V[moving_vertex] = event.picked3d[:2]  # Update the vertex position with new coordinates
-        redraw()
+    redraw()
 
 def OnLeftButtonRelease(event):
     global moving_vertex
@@ -309,10 +322,10 @@ def OnLeftButtonRelease(event):
 
 # Add callbacks
 plt.add_callback('LeftButtonPress', OnLeftButtonPress)
-plt.add_callback('MouseMove', OnMouseMove)
+plt.add_callback('MouseMove', mouse_move)
 plt.add_callback('LeftButtonRelease', OnLeftButtonRelease)
 plt.add_callback('RightButtonPress', OnRightButtonPress)
-plt.add_button(on_button_click, pos=(0.7, 0.05), states=["Next Step"])
+# plt.add_button(on_button_click, pos=(0.7, 0.05), states=["Next Step"], size=20, c="w", bc="green")
 
 vdmesh = vd.Mesh([V, F]).linecolor('black')
 plt += vdmesh
